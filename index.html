@@ -66,6 +66,7 @@
 
                 return await response.json();
             } catch (error) {
+                console.error('Failed to fetch Firebase config:', error);
                 logToHTML('Failed to fetch Firebase config: ' + error);
                 return null;
             }
@@ -83,10 +84,12 @@
         // Initialize Firebase with fetched config
         getFirebaseConfig().then(config => {
             if (!config) {
+                console.error("Error: Firebase config is null");
                 logToHTML("Error: Firebase config is null");
                 return;
             }
 
+            console.log("Firebase config fetched:", config);
             logToHTML("Firebase config fetched: " + JSON.stringify(config));
             firebase.initializeApp(config);
             const db = firebase.firestore();
@@ -112,12 +115,13 @@
                 });
 
                 auth.signInAnonymously().catch(error => {
+                    console.error('Failed to sign in anonymously:', error.message);
                     logToHTML('Failed to sign in anonymously: ' + error.message);
                 });
 
-                // Listen for player actions in Firestore
+                // Listen for actions in Firestore
                 db.collection('actions').where('callNumber', '==', callNumber)
-                    .orderBy('timestamp', 'asc')
+                    .orderBy('timestamp', 'desc')
                     .onSnapshot(snapshot => {
                         logToHTML("Snapshot received: " + JSON.stringify(snapshot.docs.map(doc => doc.data())));
                         snapshot.forEach(doc => {
@@ -125,6 +129,7 @@
                             logToHTML(`User: ${data.userName} (${data.userId}), Control: ${data.control}, Value: ${data.value}, Time: ${data.timestamp.toDate()}`);
                         });
                     }, error => {
+                        console.error("Error receiving snapshot: ", error);
                         logToHTML("Error receiving snapshot: " + error);
                     });
                 window.focus();
@@ -139,6 +144,7 @@
                 }
             });
         }).catch(error => {
+            console.error("Error fetching Firebase config: ", error);
             logToHTML("Error fetching Firebase config: " + error);
         });
     </script>
