@@ -132,8 +132,10 @@
             }
             try {
                 logToHTML('Fetching game data from Firestore...');
-                const query = db.collection('actions').where('callNumber', '==', callNumber).orderBy('timestamp', 'asc');
                 logToHTML(`Executing query for callNumber: ${callNumber}`);
+                const query = db.collection('actions')
+                    .where('callNumber', '==', callNumber.toString())
+                    .orderBy('timestamp', 'asc');
                 const snapshot = await query.get();
                 if (!snapshot.empty) {
                     logToHTML(`Fetched ${snapshot.size} documents.`);
