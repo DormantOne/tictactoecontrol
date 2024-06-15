@@ -113,14 +113,21 @@
         }
 
         async function fetchAllData() {
-            if (!db) return;
+            if (!db) {
+                logToHTML('Database not initialized.');
+                return;
+            }
             try {
+                logToHTML('Fetching data from Firestore...');
                 const snapshot = await db.collection('actions').orderBy('timestamp', 'asc').get();
                 if (!snapshot.empty) {
+                    logToHTML(`Fetched ${snapshot.size} documents.`);
                     snapshot.forEach(doc => {
                         const data = doc.data();
-                        logToHTML(`User: ${data.userName} (${data.userId}), Control: ${data.control}, Value: ${data.value}, Time: ${data.timestamp.toDate()}`);
+                        logToHTML(`Call Number: ${data.callNumber}, User: ${data.userName} (${data.userId}), Control: ${data.control}, Value: ${data.value}, Time: ${data.timestamp.toDate()}`);
                     });
+                } else {
+                    logToHTML('No documents found.');
                 }
             } catch (error) {
                 logToHTML("Error fetching data: " + error);
