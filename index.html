@@ -141,7 +141,7 @@
                         updateBoard(data);
                     });
                 } else {
-                    logToHTML('No documents found.');
+                    logToHTML('No documents found for call number ' + callNumber);
                 }
             } catch (error) {
                 logToHTML("Error fetching game data: " + error);
