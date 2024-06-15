@@ -139,6 +139,7 @@
                         snapshot.docChanges().forEach(change => {
                             if (change.type === 'added') {
                                 const data = change.doc.data();
+                                console.log("Player action data:", data);
                                 handlePlayerAction(data);
                             }
                         });
@@ -146,6 +147,7 @@
             });
 
             function handlePlayerAction(data) {
+                console.log("Handling player action:", data);
                 if (!players.includes(data.userId)) {
                     players.push(data.userId);
                     if (players.length === 1) {
@@ -165,10 +167,12 @@
                 if (players.length === 2) {
                     const cellIndex = parseInt(data.value);
                     const cell = document.querySelector(`[data-cell-index="${cellIndex}"]`);
+                    console.log("Board state before update:", boardState);
 
                     if (boardState[cellIndex] === null) {
                         boardState[cellIndex] = data.symbol;
                         cell.textContent = data.symbol;
+                        console.log("Board state updated:", boardState);
 
                         if (checkWin()) {
                             message.textContent = `Player ${data.symbol} wins!`;
@@ -211,6 +215,7 @@
             }
 
             function unlockPlayerController(player) {
+                console.log("Unlocking player controller for player:", player);
                 // Implement logic to unlock the player's controller
                 // This could involve updating a Firestore document that the controller listens for
                 db.collection('actions').doc('gameState').set({
@@ -220,6 +225,7 @@
 
             // Update the board based on Firestore data
             function updateBoard() {
+                console.log("Updating board with state:", boardState);
                 for (let i = 0; i < boardState.length; i++) {
                     const cell = document.querySelector(`[data-cell-index="${i}"]`);
                     cell.textContent = boardState[i] ? boardState[i] : i;
