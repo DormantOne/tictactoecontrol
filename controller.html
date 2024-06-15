@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tic Tac Toe Controller</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .control-container {
+            margin: 10px 0;
+        }
+
+        .control-container select {
+            width: 150px; /* Increase width */
+            font-size: 1.2em; /* Increase font size */
+        }
+
+        .control-container button {
+            width: 150px; /* Increase width */
+            height: 50px; /* Increase height */
+            margin: 5px;
+            font-size: 1.2em; /* Increase font size */
+        }
+    </style>
+</head>
+<body>
+    <h2>Tic Tac Toe Controller</h2>
+    <div id="controller">
+        <div class="control-container">
+            <label for="userNameInput">Your Name:</label>
+            <input type="text" id="userNameInput">
+            <button id="saveNameButton">Save</button>
+        </div>
+        <p id="userName"></p>
+        <p id="callNumberDisplay"></p>
+        <div class="control-container">
+            <label for="choice">Choose a cell:</label>
+            <select id="choice">
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+            </select>
+        </div>
+        <div class="control-container">
+            <button id="submitButton">Submit</button>
+        </div>
+    </div>
+
+    <!-- Firebase setup -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-functions-compat.js"></script>
+
+    <script>
+        // Function to get Firebase config from Cloud Function
+        async function getFirebaseConfig() {
+            const response = await fetch('https://us-central1-universalcontroller-b4610.cloudfunctions.net/getFirebaseConfig', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            const config = await response.json();
+            return config;
+        }
+
+        // Parse query parameters
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        // Initialize Firebase with fetched config
+        getFirebaseConfig().then(config => {
+            firebase.initializeApp(config);
+            const db = firebase.firestore();
+            const auth = firebase.auth();
+
+            const callNumber = getQueryParam('callNumber');
+            document.getElementById('callNumberDisplay').textContent = `Call Number: ${callNumber}`;
+
+            auth.signInAnonymously().catch(error => {
+                console.error(error.message);
+            });
+
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    const userId = user.uid;
+                    const userNameElement = document.getElementById('userName');
+                    const userNameInput = document.getElementById('userNameInput');
+                    const savedUserName = localStorage.getItem('userName');
+
+                    if (savedUserName) {
+                        userNameInput.value = savedUserName;
+                        userNameElement.textContent = `User: ${savedUserName}`;
+                    } else {
+                        userNameElement.textContent = `User: ${userId}`;
+                    }
+
+                    document.getElementById('saveNameButton').addEventListener('click', () => {
+                        const userName = userNameInput.value;
+                        localStorage.setItem('userName', userName);
+                        userNameElement.textContent = `User: ${userName}`;
+                    });
+
+                    function handleControl(control, value) {
+                        const userName = localStorage.getItem('userName') || userId;
+                        const controlData = {
+                            userId,
+                            userName,
+                            callNumber,
+                            control,
+                            value: value || null,
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        };
+
+                        db.collection('actions').add(controlData).then(() => {
+                            console.log('Action recorded:', controlData);
+                        }).catch(error => {
+                            console.error(error.message);
+                        });
+                    }
+
+                    document.getElementById('submitButton').addEventListener('click', () => {
+                        handleControl('choice', document.getElementById('choice').value);
+                    });
+                }
+            });
+        }).catch(error => {
+            console.error("Error fetching Firebase config: ", error);
+        });
+    </script>
+</body>
+</html>
