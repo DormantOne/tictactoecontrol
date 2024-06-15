@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Counter Test</title>
+    <title>Counter and Firestore Test</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -14,20 +14,92 @@
             font-size: 2em;
             margin-top: 20px;
         }
+
+        #logs {
+            margin-top: 20px;
+            font-size: 0.8em;
+            text-align: left;
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #f0f0f0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            height: 200px;
+            overflow-y: scroll;
+        }
+
+        .log-entry {
+            border-bottom: 1px solid #ccc;
+            padding: 2px 0;
+        }
     </style>
 </head>
 <body>
-    <h2>Counter Test</h2>
+    <h2>Counter and Firestore Test</h2>
     <div id="counter">0</div>
+    <button id="startGameButton">Start Game</button>
     <button id="openGovernorButton">Open Governor</button>
+    <div id="logs"></div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-functions-compat.js"></script>
 
     <script>
         let governorWindow;
         let counter = 0;
+        let db, auth, callNumber;
+
+        // Function to get Firebase config from Cloud Function
+        async function getFirebaseConfig() {
+            try {
+                const response = await fetch('https://us-central1-universalcontroller-b4610.cloudfunctions.net/getFirebaseConfig', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: '{}'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                return await response.json();
+            } catch (error) {
+                logToHTML('Failed to fetch Firebase config: ' + error);
+                return null;
+            }
+        }
+
+        function logToHTML(message) {
+            const logContainer = document.getElementById('logs');
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.textContent = message;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
 
         function updateCounter() {
             counter++;
             document.getElementById('counter').textContent = counter;
+        }
+
+        async function fetchAllData() {
+            if (!db) return;
+            try {
+                const snapshot = await db.collection('actions').orderBy('timestamp', 'asc').get();
+                if (!snapshot.empty) {
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        logToHTML(`User: ${data.userName} (${data.userId}), Control: ${data.control}, Value: ${data.value}, Time: ${data.timestamp.toDate()}`);
+                    });
+                }
+            } catch (error) {
+                logToHTML("Error fetching data: " + error);
+            }
         }
 
         function startCounter() {
@@ -35,13 +107,52 @@
         }
 
         const openGovernorButton = document.getElementById('openGovernorButton');
+        const startGameButton = document.getElementById('startGameButton');
+
         openGovernorButton.addEventListener('click', () => {
-            const governorUrl = `https://dormantone.github.io/tictactoecontrol/controller-governor.html`;
+            if (!callNumber) {
+                logToHTML('Start the game first to generate a call number.');
+                return;
+            }
+            const governorUrl = `https://dormantone.github.io/tictactoecontrol/controller-governor.html?callNumber=${callNumber}`;
             if (governorWindow && !governorWindow.closed) {
                 governorWindow.focus();
             } else {
                 governorWindow = window.open(governorUrl, '_blank', 'width=400,height=800');
             }
+        });
+
+        startGameButton.addEventListener('click', async () => {
+            callNumber = Math.floor(Math.random() * 900000) + 100000;
+            logToHTML(`Game started! Call Number: ${callNumber}`);
+
+            const qrElement = document.getElementById('qrCode');
+            const qr = new QRious({
+                element: qrElement,
+                size: 200,
+                value: `https://dormantone.github.io/tictactoecontrol/controller.html?callNumber=${callNumber}`
+            });
+
+            const config = await getFirebaseConfig();
+            if (!config) {
+                logToHTML("Error: Firebase config is null");
+                return;
+            }
+
+            logToHTML("Firebase config fetched: " + JSON.stringify(config));
+            firebase.initializeApp(config);
+            db = firebase.firestore();
+            auth = firebase.auth();
+
+            auth.signInAnonymously().catch(error => {
+                logToHTML('Failed to sign in anonymously: ' + error.message);
+            });
+
+            // Fetch all data initially
+            fetchAllData();
+
+            // Periodically fetch all data
+            setInterval(fetchAllData, 5000);
         });
 
         startCounter();
