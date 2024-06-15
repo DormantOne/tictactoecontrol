@@ -132,6 +132,23 @@
             setInterval(checkTurn, 1000);
         }
 
+        function loadUserFromLocalStorage() {
+            const storedUserName = localStorage.getItem('userName');
+            const storedUserId = localStorage.getItem('userId');
+            if (storedUserName && storedUserId) {
+                userName = storedUserName;
+                userId = storedUserId;
+                document.getElementById('userName').textContent = `User: ${userName}`;
+                return true;
+            }
+            return false;
+        }
+
+        function saveUserToLocalStorage() {
+            localStorage.setItem('userName', userName);
+            localStorage.setItem('userId', userId);
+        }
+
         // Initialize Firebase with fetched config
         getFirebaseConfig().then(config => {
             firebase.initializeApp(config);
@@ -146,9 +163,12 @@
 
             auth.onAuthStateChanged(user => {
                 if (user) {
-                    userId = user.uid;
-                    userName = prompt("Enter your name:");
-                    document.getElementById('userName').textContent = `User: ${userName}`;
+                    if (!loadUserFromLocalStorage()) {
+                        userId = user.uid;
+                        userName = prompt("Enter your name:");
+                        document.getElementById('userName').textContent = `User: ${userName}`;
+                        saveUserToLocalStorage();
+                    }
                     checkTurn();
 
                     db.collection('actions').where('callNumber', '==', callNumber)
