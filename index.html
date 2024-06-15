@@ -132,16 +132,18 @@
             }
             try {
                 logToHTML('Fetching game data from Firestore...');
-                const snapshot = await db.collection('actions').where('callNumber', '==', callNumber).orderBy('timestamp', 'asc').get();
+                const query = db.collection('actions').where('callNumber', '==', callNumber).orderBy('timestamp', 'asc');
+                logToHTML(`Executing query: ${query.path} with callNumber: ${callNumber}`);
+                const snapshot = await query.get();
                 if (!snapshot.empty) {
                     logToHTML(`Fetched ${snapshot.size} documents.`);
                     snapshot.forEach(doc => {
                         const data = doc.data();
-                        logToHTML(`Call Number: ${data.callNumber}, User: ${data.userName} (${data.userId}), Control: ${data.control}, Value: ${data.value}, Time: ${data.timestamp.toDate()}`);
+                        logToHTML(`Document data: ${JSON.stringify(data)}`);
                         updateBoard(data);
                     });
                 } else {
-                    logToHTML('No documents found for call number ' + callNumber);
+                    logToHTML(`No documents found for call number ${callNumber}`);
                 }
             } catch (error) {
                 logToHTML("Error fetching game data: " + error);
@@ -151,7 +153,7 @@
         function updateBoard(data) {
             const cellIndex = parseInt(data.value);
             const cell = document.querySelector(`[data-cell-index="${cellIndex}"]`);
-            cell.textContent = data.symbol || '';
+            cell.textContent = data.control === 'choice' ? (data.userName === 'X' ? 'X' : 'O') : '';
         }
 
         function startCounter() {
