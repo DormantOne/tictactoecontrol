@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Tic Tac Toe Game</title>
+    <title>Counter Test</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -10,196 +10,41 @@
             margin-top: 20px;
         }
 
-        .qr-code {
-            margin-top: 20px;
-        }
-
-        #logs {
-            margin-top: 20px;
-            font-size: 0.8em;
-            text-align: left;
-            max-width: 600px;
-            margin: 20px auto;
-            background-color: #f0f0f0;
-            padding: 10px;
-            border: 1px solid #ccc;
-            height: 200px;
-            overflow-y: scroll;
-        }
-
-        .log-entry {
-            border-bottom: 1px solid #ccc;
-            padding: 2px 0;
-        }
-
-        .board {
-            display: grid;
-            grid-template-columns: repeat(3, 100px);
-            grid-template-rows: repeat(3, 100px);
-            gap: 5px;
-            margin: 20px auto;
-        }
-
-        .cell {
-            width: 100px;
-            height: 100px;
-            border: 1px solid #000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+        #counter {
             font-size: 2em;
-            cursor: pointer;
-        }
-
-        button {
             margin-top: 20px;
-            font-size: 1.2em;
-            padding: 10px 20px;
         }
     </style>
 </head>
 <body>
-    <h2>Tic Tac Toe Game Firestore Listener</h2>
-    <button id="startGameButton">Start Game</button>
+    <h2>Counter Test</h2>
+    <div id="counter">0</div>
     <button id="openGovernorButton">Open Governor</button>
-    <div id="qrCode" class="qr-code"></div>
-    <div id="logs"></div>
-    <div id="board" class="board">
-        <div class="cell" data-cell-index="0">0</div>
-        <div class="cell" data-cell-index="1">1</div>
-        <div class="cell" data-cell-index="2">2</div>
-        <div class="cell" data-cell-index="3">3</div>
-        <div class="cell" data-cell-index="4">4</div>
-        <div class="cell" data-cell-index="5">5</div>
-        <div class="cell" data-cell-index="6">6</div>
-        <div class="cell" data-cell-index="7">7</div>
-        <div class="cell" data-cell-index="8">8</div>
-    </div>
-
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-functions-compat.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
 
     <script>
         let governorWindow;
-        let db, auth, callNumber, lastTimestamp = null;
+        let counter = 0;
 
-        // Function to get Firebase config from Cloud Function
-        async function getFirebaseConfig() {
-            try {
-                const response = await fetch('https://us-central1-universalcontroller-b4610.cloudfunctions.net/getFirebaseConfig', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: '{}'
-                });
-
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-
-                return await response.json();
-            } catch (error) {
-                logToHTML('Failed to fetch Firebase config: ' + error);
-                return null;
-            }
+        function updateCounter() {
+            counter++;
+            document.getElementById('counter').textContent = counter;
         }
 
-        function logToHTML(message) {
-            const logContainer = document.getElementById('logs');
-            const logEntry = document.createElement('div');
-            logEntry.className = 'log-entry';
-            logEntry.textContent = message;
-            logContainer.appendChild(logEntry);
-            logContainer.scrollTop = logContainer.scrollHeight;
+        function startCounter() {
+            setInterval(updateCounter, 1000);
         }
 
-        function updateBoard(data) {
-            const cellIndex = parseInt(data.value);
-            const cell = document.querySelector(`[data-cell-index="${cellIndex}"]`);
-            cell.textContent = data.control === 'submit' ? (data.symbol || '') : cellIndex;
-        }
-
-        async function checkForUpdates() {
-            try {
-                let query = db.collection('actions').where('callNumber', '==', callNumber).orderBy('timestamp', 'asc');
-                if (lastTimestamp) {
-                    query = query.startAfter(lastTimestamp);
-                }
-
-                const snapshot = await query.get();
-                if (!snapshot.empty) {
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        logToHTML(`User: ${data.userName} (${data.userId}), Control: ${data.control}, Value: ${data.value}, Time: ${data.timestamp.toDate()}`);
-                        updateBoard(data);
-                        lastTimestamp = data.timestamp;
-                    });
-                }
-            } catch (error) {
-                logToHTML("Error checking for updates: " + error);
-            }
-        }
-
-        function startPolling() {
-            setInterval(checkForUpdates, 500);
-        }
-
-        // Initialize Firebase with fetched config
-        getFirebaseConfig().then(config => {
-            if (!config) {
-                logToHTML("Error: Firebase config is null");
-                return;
-            }
-
-            logToHTML("Firebase config fetched: " + JSON.stringify(config));
-            firebase.initializeApp(config);
-            db = firebase.firestore();
-            auth = firebase.auth();
-
-            const startGameButton = document.getElementById('startGameButton');
-            const openGovernorButton = document.getElementById('openGovernorButton');
-
-            startGameButton.addEventListener('click', startGame);
-            openGovernorButton.addEventListener('click', openGovernor);
-
-            function startGame() {
-                callNumber = Math.floor(Math.random() * 900000) + 100000;
-                logToHTML(`Game started! Call Number: ${callNumber}`);
-                const governorUrl = `https://dormantone.github.io/tictactoecontrol/controller-governor.html?callNumber=${callNumber}`;
-
-                // Open the governor window with specified dimensions
+        const openGovernorButton = document.getElementById('openGovernorButton');
+        openGovernorButton.addEventListener('click', () => {
+            const governorUrl = `https://dormantone.github.io/tictactoecontrol/controller-governor.html`;
+            if (governorWindow && !governorWindow.closed) {
+                governorWindow.focus();
+            } else {
                 governorWindow = window.open(governorUrl, '_blank', 'width=400,height=800');
-
-                const qrElement = document.getElementById('qrCode');
-                const qr = new QRious({
-                    element: qrElement,
-                    size: 200,
-                    value: `https://dormantone.github.io/tictactoecontrol/controller.html?callNumber=${callNumber}`
-                });
-
-                auth.signInAnonymously().catch(error => {
-                    logToHTML('Failed to sign in anonymously: ' + error.message);
-                });
-
-                // Start polling for updates
-                startPolling();
             }
-
-            function openGovernor() {
-                if (governorWindow && !governorWindow.closed) {
-                    governorWindow.focus();
-                } else {
-                    const governorUrl = `https://dormantone.github.io/tictactoecontrol/controller-governor.html?callNumber=${callNumber}`;
-                    governorWindow = window.open(governorUrl, '_blank', 'width=400,height=800');
-                }
-            }
-        }).catch(error => {
-            logToHTML("Error fetching Firebase config: " + error);
         });
+
+        startCounter();
     </script>
 </body>
 </html>
