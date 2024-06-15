@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Tic Tac Toe Controller</title>
+    <title>Universal Controller</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -14,31 +14,30 @@
             margin: 10px 0;
         }
 
-        .control-container select {
-            width: 150px; /* Increase width */
-            font-size: 1.2em; /* Increase font size */
+        .control-container input[type="text"],
+        .control-container input[type="number"] {
+            width: 80px;
         }
 
-        .control-container button {
-            width: 150px; /* Increase width */
-            height: 50px; /* Increase height */
+        .control-container button,
+        .control-container input[type="submit"] {
+            width: 100px;
+            height: 40px;
             margin: 5px;
-            font-size: 1.2em; /* Increase font size */
+        }
+
+        .qr-code {
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
-    <h2>Tic Tac Toe Controller</h2>
+    <h2>Universal Controller</h2>
     <div id="controller">
-        <div class="control-container">
-            <label for="userNameInput">Your Name:</label>
-            <input type="text" id="userNameInput">
-            <button id="saveNameButton">Save</button>
-        </div>
         <p id="userName"></p>
         <p id="callNumberDisplay"></p>
         <div class="control-container">
-            <label for="choice">Choose a cell:</label>
+            <label for="choice">Choice:</label>
             <select id="choice">
                 <option value="0">0</option>
                 <option value="1">1</option>
@@ -52,27 +51,30 @@
             </select>
         </div>
         <div class="control-container">
-            <button id="submitButton">Submit</button>
+            <input type="submit" id="submitButton" value="Submit" disabled>
         </div>
     </div>
 
     <!-- Firebase setup -->
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-functions-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-functions.js"></script>
 
     <script>
+        let db, auth, callNumber, userId, userName;
+        const submitButton = document.getElementById('submitButton');
+
         // Function to get Firebase config from Cloud Function
         async function getFirebaseConfig() {
             const response = await fetch('https://us-central1-universalcontroller-b4610.cloudfunctions.net/getFirebaseConfig', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
-                }
+                },
+                body: '{}'
             });
-            const config = await response.json();
-            return config;
+            return response.json();
         }
 
         // Parse query parameters
@@ -81,13 +83,61 @@
             return urlParams.get(param);
         }
 
+        async function checkTurn() {
+            const lastMoveDoc = await db.collection('actions')
+                .where('callNumber', '==', callNumber)
+                .orderBy('timestamp', 'desc')
+                .limit(1)
+                .get();
+            
+            if (!lastMoveDoc.empty) {
+                const lastMove = lastMoveDoc.docs[0].data();
+                const lastPlayer = lastMove.userId;
+
+                if (lastPlayer !== userId) {
+                    submitButton.disabled = false;
+                } else {
+                    submitButton.disabled = true;
+                }
+            } else {
+                submitButton.disabled = false; // No moves yet, first player can go
+            }
+        }
+
+        function logToHTML(message) {
+            const logContainer = document.getElementById('logs');
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.textContent = message;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        async function submitChoice() {
+            const choice = document.getElementById('choice').value;
+            const controlData = {
+                userName,
+                userId,
+                callNumber,
+                control: 'choice',
+                value: choice,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            await db.collection('actions').add(controlData);
+            submitButton.disabled = true;
+            localStorage.setItem('lastPlayer', userId); // Store last player in local storage
+
+            // Periodically check the turn
+            setInterval(checkTurn, 1000);
+        }
+
         // Initialize Firebase with fetched config
         getFirebaseConfig().then(config => {
             firebase.initializeApp(config);
-            const db = firebase.firestore();
-            const auth = firebase.auth();
-
-            const callNumber = getQueryParam('callNumber');
+            db = firebase.firestore();
+            auth = firebase.auth();
+            callNumber = getQueryParam('callNumber');
             document.getElementById('callNumberDisplay').textContent = `Call Number: ${callNumber}`;
 
             auth.signInAnonymously().catch(error => {
@@ -96,73 +146,27 @@
 
             auth.onAuthStateChanged(user => {
                 if (user) {
-                    const userId = user.uid;
-                    const userNameElement = document.getElementById('userName');
-                    const userNameInput = document.getElementById('userNameInput');
-                    const savedUserName = localStorage.getItem('userName');
-                    let currentPlayer;
+                    userId = user.uid;
+                    userName = prompt("Enter your name:");
+                    document.getElementById('userName').textContent = `User: ${userName}`;
+                    checkTurn();
 
-                    if (savedUserName) {
-                        userNameInput.value = savedUserName;
-                        userNameElement.textContent = `User: ${savedUserName}`;
-                    } else {
-                        userNameElement.textContent = `User: ${userId}`;
-                    }
-
-                    document.getElementById('saveNameButton').addEventListener('click', () => {
-                        const userName = userNameInput.value;
-                        localStorage.setItem('userName', userName);
-                        userNameElement.textContent = `User: ${userName}`;
-                    });
-
-                    function handleControl(control, value) {
-                        const userName = localStorage.getItem('userName') || userId;
-                        const controlData = {
-                            userId,
-                            userName,
-                            callNumber,
-                            control,
-                            value: value || null,
-                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                        };
-
-                        db.collection('actions').add(controlData).then(() => {
-                            console.log('Action recorded:', controlData);
-                        }).catch(error => {
-                            console.error(error.message);
-                        });
-                    }
-
-                    document.getElementById('submitButton').addEventListener('click', () => {
-                        handleControl('choice', document.getElementById('choice').value);
-                    });
-
-                    // Listen for actions in Firestore to disable button if not user's turn
                     db.collection('actions').where('callNumber', '==', callNumber)
                       .orderBy('timestamp', 'asc')
                       .onSnapshot(snapshot => {
-                        snapshot.docChanges().forEach(change => {
-                            if (change.type === 'added') {
-                                const data = change.doc.data();
-                                db.collection('actions').doc('gameState').get().then(doc => {
-                                    if (doc.exists) {
-                                        const gameState = doc.data();
-                                        if (gameState.currentTurn !== userId) {
-                                            document.getElementById('submitButton').disabled = true;
-                                        } else {
-                                            document.getElementById('submitButton').disabled = false;
-                                        }
-                                    }
-                                });
-                            }
+                        snapshot.forEach(doc => {
+                            const data = doc.data();
+                            logToHTML(`Document data: ${JSON.stringify(data)}`);
                         });
-                      });
+                        checkTurn();
+                    });
                 }
             });
+
+            submitButton.addEventListener('click', submitChoice);
         }).catch(error => {
             console.error("Error fetching Firebase config: ", error);
         });
     </script>
 </body>
 </html>
- 
