@@ -148,9 +148,18 @@
             function handlePlayerAction(data) {
                 if (!players.includes(data.userId)) {
                     players.push(data.userId);
-                    if (players.length === 2) {
+                    if (players.length === 1) {
+                        data.symbol = 'X';
+                    } else if (players.length === 2) {
+                        data.symbol = 'O';
                         message.textContent = `Player X: ${players[0]}, Player O: ${players[1]}`;
                     }
+                    // Save player symbols
+                    db.collection('actions').doc(data.userId).set({
+                        userId: data.userId,
+                        userName: data.userName,
+                        symbol: data.symbol
+                    });
                 }
 
                 if (players.length === 2) {
@@ -158,11 +167,11 @@
                     const cell = document.querySelector(`[data-cell-index="${cellIndex}"]`);
 
                     if (boardState[cellIndex] === null) {
-                        boardState[cellIndex] = currentPlayer;
-                        cell.textContent = currentPlayer;
+                        boardState[cellIndex] = data.symbol;
+                        cell.textContent = data.symbol;
 
                         if (checkWin()) {
-                            message.textContent = `Player ${currentPlayer} wins!`;
+                            message.textContent = `Player ${data.symbol} wins!`;
                             // Reset game or handle win
                         } else if (isBoardFull()) {
                             message.textContent = 'It\'s a tie!';
