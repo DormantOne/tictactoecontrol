@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Controller Governor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .qr-code {
+            margin-top: 20px;
+        }
+
+        #resultLog {
+            margin-top: 20px;
+            text-align: left;
+            max-height: 80vh; /* Limit height */
+            overflow-y: auto; /* Enable vertical scroll only when necessary */
+            margin: 20px 0;
+        }
+
+        .log-entry {
+            border-bottom: 1px solid #ccc;
+            padding: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h2>Controller Governor</h2>
+    <div id="qrCode" class="qr-code"></div>
+    <p id="callNumberDisplay"></p>
+    <div id="resultLog"></div>
+
+    <!-- Firebase setup -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-functions-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+
+    <script>
+        // Function to get Firebase config from Cloud Function
+        async function getFirebaseConfig() {
+            try {
+                const response = await fetch('https://us-central1-universalcontroller-b4610.cloudfunctions.net/getFirebaseConfig', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Content-Length': '2'
+                    },
+                    body: '{}'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('Failed to fetch Firebase config:', error);
+                return null;
+            }
+        }
+
+        // Parse query parameters
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        // Initialize Firebase with fetched config
+        getFirebaseConfig().then(config => {
+            if (!config) {
+                console.error("Error: Firebase config is null");
+                return;
+            }
+            
+            console.log("Firebase config fetched:", config);
+            firebase.initializeApp(config);
+            const db = firebase.firestore();
+            const auth = firebase.auth();
+            const functions = firebase.functions();
+
+            const callNumber = getQueryParam('callNumber');
+            document.getElementById('callNumberDisplay').textContent = `Call Number: ${callNumber}`;
+
+            auth.signInAnonymously().catch(error => {
+                console.error('Failed to sign in anonymously:', error.message);
+            });
+
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    const userId = user.uid;
+                    console.log("User signed in anonymously:", userId);
+
+                    // Generate QR code after user is signed in
+                    const qrElement = document.getElementById('qrCode');
+                    const qr = new QRious({
+                        element: qrElement,
+                        size: 200,
+                        value: `https://dormantone.github.io/tictactoecontrol/controller.html?callNumber=${callNumber}`
+                    });
+
+                    // Explicitly render the QR code canvas
+                    qrElement.innerHTML = '';
+                    qrElement.appendChild(qr.canvas);
+
+                    console.log("QRious library output:", qr);
+
+                    // Listen for actions in Firestore
+                    db.collection('actions').where('callNumber', '==', callNumber)
+                      .orderBy('timestamp', 'desc') // Order by descending to get most recent on top
+                      .onSnapshot(snapshot => {
+                        const log = document.getElementById('resultLog');
+                        log.innerHTML = '';
+                        snapshot.forEach(doc => {
+                            const data = doc.data();
+                            const logEntry = document.createElement('div');
+                            logEntry.className = 'log-entry';
+                            logEntry.textContent = `User: ${data.userName} (${data.userId}), Control: ${data.control}, Value: ${data.value}, Time: ${data.timestamp.toDate()}`;
+                            log.appendChild(logEntry);
+                        });
+                    });
+                }
+            });
+        }).catch(error => {
+            console.error("Error fetching Firebase config: ", error);
+        });
+    </script>
+</body>
+</html>
