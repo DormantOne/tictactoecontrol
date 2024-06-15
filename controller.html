@@ -144,14 +144,19 @@
                         snapshot.docChanges().forEach(change => {
                             if (change.type === 'added') {
                                 const data = change.doc.data();
-                                if (data.userId !== userId) {
-                                    document.getElementById('submitButton').disabled = true;
-                                } else {
-                                    document.getElementById('submitButton').disabled = false;
-                                }
+                                db.collection('actions').doc('gameState').get().then(doc => {
+                                    if (doc.exists) {
+                                        const gameState = doc.data();
+                                        if (gameState.currentTurn !== userId) {
+                                            document.getElementById('submitButton').disabled = true;
+                                        } else {
+                                            document.getElementById('submitButton').disabled = false;
+                                        }
+                                    }
+                                });
                             }
                         });
-                    });
+                      });
                 }
             });
         }).catch(error => {
