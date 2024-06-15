@@ -141,6 +141,7 @@
                     snapshot.forEach(doc => {
                         const data = doc.data();
                         logToHTML(`Document data: ${JSON.stringify(data)}`);
+                        assignPlayerSymbol(data.userName, data.userId); // Assign player symbols based on first moves
                         updateBoard(data);
                     });
                 } else {
@@ -154,7 +155,7 @@
         function updateBoard(data) {
             const cellIndex = parseInt(data.value);
             const cell = document.querySelector(`[data-cell-index="${cellIndex}"]`);
-            const playerSymbol = data.userId === players.O.userId ? 'O' : 'X';
+            const playerSymbol = data.userId === players.O?.userId ? 'O' : 'X';
             cell.textContent = playerSymbol;
         }
 
@@ -163,11 +164,11 @@
         }
 
         function assignPlayerSymbol(userName, userId) {
-            if (!players.O) {
+            if (!players.O && localStorage.getItem('playerO') === null) {
                 players.O = { userName, userId };
                 localStorage.setItem('playerO', JSON.stringify(players.O));
                 logToHTML(`Player O is ${userName}`);
-            } else if (!players.X) {
+            } else if (!players.X && localStorage.getItem('playerX') === null && userId !== players.O?.userId) {
                 players.X = { userName, userId };
                 localStorage.setItem('playerX', JSON.stringify(players.X));
                 logToHTML(`Player X is ${userName}`);
