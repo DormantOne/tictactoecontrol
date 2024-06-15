@@ -140,6 +140,7 @@
                 db.collection('actions').where('callNumber', '==', callNumber)
                     .orderBy('timestamp', 'asc')
                     .onSnapshot(snapshot => {
+                        console.log("Snapshot received:", snapshot);
                         snapshot.docChanges().forEach(change => {
                             if (change.type === 'added') {
                                 const data = change.doc.data();
