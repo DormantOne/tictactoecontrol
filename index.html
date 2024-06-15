@@ -84,7 +84,7 @@
 
     <script>
         let governorWindow;
-        let db, auth, callNumber;
+        let db, auth, callNumber, lastTimestamp = null;
 
         // Function to get Firebase config from Cloud Function
         async function getFirebaseConfig() {
@@ -115,6 +115,37 @@
             logEntry.textContent = message;
             logContainer.appendChild(logEntry);
             logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function updateBoard(data) {
+            const cellIndex = parseInt(data.value);
+            const cell = document.querySelector(`[data-cell-index="${cellIndex}"]`);
+            cell.textContent = data.control === 'submit' ? (data.symbol || '') : cellIndex;
+        }
+
+        async function checkForUpdates() {
+            try {
+                let query = db.collection('actions').where('callNumber', '==', callNumber).orderBy('timestamp', 'asc');
+                if (lastTimestamp) {
+                    query = query.startAfter(lastTimestamp);
+                }
+
+                const snapshot = await query.get();
+                if (!snapshot.empty) {
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        logToHTML(`User: ${data.userName} (${data.userId}), Control: ${data.control}, Value: ${data.value}, Time: ${data.timestamp.toDate()}`);
+                        updateBoard(data);
+                        lastTimestamp = data.timestamp;
+                    });
+                }
+            } catch (error) {
+                logToHTML("Error checking for updates: " + error);
+            }
+        }
+
+        function startPolling() {
+            setInterval(checkForUpdates, 500);
         }
 
         // Initialize Firebase with fetched config
@@ -154,20 +185,8 @@
                     logToHTML('Failed to sign in anonymously: ' + error.message);
                 });
 
-                // Listen for game state changes in Firestore
-                db.collection('actions').where('callNumber', '==', callNumber)
-                    .orderBy('timestamp', 'asc')
-                    .onSnapshot(snapshot => {
-                        logToHTML("Snapshot received: " + JSON.stringify(snapshot.docs.map(doc => doc.data())));
-                        snapshot.forEach(doc => {
-                            const data = doc.data();
-                            logToHTML(`User: ${data.userName} (${data.userId}), Control: ${data.control}, Value: ${data.value}, Time: ${data.timestamp.toDate()}`);
-                            updateBoard(data);
-                        });
-                    }, error => {
-                        logToHTML("Error receiving snapshot: " + error);
-                    });
-                window.focus();
+                // Start polling for updates
+                startPolling();
             }
 
             function openGovernor() {
@@ -177,12 +196,6 @@
                     const governorUrl = `https://dormantone.github.io/tictactoecontrol/controller-governor.html?callNumber=${callNumber}`;
                     governorWindow = window.open(governorUrl, '_blank', 'width=400,height=800');
                 }
-            }
-
-            function updateBoard(data) {
-                const cellIndex = parseInt(data.value);
-                const cell = document.querySelector(`[data-cell-index="${cellIndex}"]`);
-                cell.textContent = data.control === 'submit' ? (data.symbol || '') : cellIndex;
             }
         }).catch(error => {
             logToHTML("Error fetching Firebase config: " + error);
