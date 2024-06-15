@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Counter and Firestore Test</title>
+    <title>Tic Tac Toe Game</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -59,12 +59,23 @@
     </style>
 </head>
 <body>
-    <h2>Counter and Firestore Test</h2>
+    <h2>Tic Tac Toe Game</h2>
     <div id="counter">0</div>
     <button id="startGameButton">Start Game</button>
     <button id="openGovernorButton">Open Governor</button>
     <div id="qrCode" class="qr-code"></div>
     <div id="logs"></div>
+    <div id="board" class="board">
+        <div class="cell" data-cell-index="0"></div>
+        <div class="cell" data-cell-index="1"></div>
+        <div class="cell" data-cell-index="2"></div>
+        <div class="cell" data-cell-index="3"></div>
+        <div class="cell" data-cell-index="4"></div>
+        <div class="cell" data-cell-index="5"></div>
+        <div class="cell" data-cell-index="6"></div>
+        <div class="cell" data-cell-index="7"></div>
+        <div class="cell" data-cell-index="8"></div>
+    </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
@@ -76,6 +87,7 @@
         let governorWindow;
         let counter = 0;
         let db, auth, callNumber;
+        let playerSymbol = null;
 
         // Function to get Firebase config from Cloud Function
         async function getFirebaseConfig() {
@@ -113,30 +125,47 @@
             document.getElementById('counter').textContent = counter;
         }
 
-        async function fetchAllData() {
+        async function fetchGameData() {
             if (!db) {
                 logToHTML('Database not initialized.');
                 return;
             }
             try {
-                logToHTML('Fetching data from Firestore...');
-                const snapshot = await db.collection('actions').orderBy('timestamp', 'asc').get();
+                logToHTML('Fetching game data from Firestore...');
+                const snapshot = await db.collection('actions').where('callNumber', '==', callNumber).orderBy('timestamp', 'asc').get();
                 if (!snapshot.empty) {
                     logToHTML(`Fetched ${snapshot.size} documents.`);
                     snapshot.forEach(doc => {
                         const data = doc.data();
                         logToHTML(`Call Number: ${data.callNumber}, User: ${data.userName} (${data.userId}), Control: ${data.control}, Value: ${data.value}, Time: ${data.timestamp.toDate()}`);
+                        updateBoard(data);
                     });
                 } else {
                     logToHTML('No documents found.');
                 }
             } catch (error) {
-                logToHTML("Error fetching data: " + error);
+                logToHTML("Error fetching game data: " + error);
             }
+        }
+
+        function updateBoard(data) {
+            const cellIndex = parseInt(data.value);
+            const cell = document.querySelector(`[data-cell-index="${cellIndex}"]`);
+            cell.textContent = data.symbol || '';
         }
 
         function startCounter() {
             setInterval(updateCounter, 1000);
+        }
+
+        function assignPlayerSymbol() {
+            if (!localStorage.getItem('playerSymbol')) {
+                playerSymbol = Math.random() < 0.5 ? 'X' : 'O';
+                localStorage.setItem('playerSymbol', playerSymbol);
+            } else {
+                playerSymbol = localStorage.getItem('playerSymbol');
+            }
+            logToHTML(`You are playing as ${playerSymbol}`);
         }
 
         const openGovernorButton = document.getElementById('openGovernorButton');
@@ -156,8 +185,10 @@
         });
 
         startGameButton.addEventListener('click', async () => {
+            localStorage.clear();
             callNumber = Math.floor(Math.random() * 900000) + 100000;
             logToHTML(`Game started! Call Number: ${callNumber}`);
+            assignPlayerSymbol();
 
             const qrElement = document.getElementById('qrCode');
             const qr = new QRious({
@@ -181,11 +212,15 @@
                 logToHTML('Failed to sign in anonymously: ' + error.message);
             });
 
-            // Fetch all data initially
-            fetchAllData();
+            // Fetch game data initially
+            fetchGameData();
 
-            // Periodically fetch all data
-            setInterval(fetchAllData, 5000);
+            // Periodically fetch game data
+            setInterval(fetchGameData, 5000);
+
+            // Open the governor window
+            const governorUrl = `https://dormantone.github.io/tictactoecontrol/controller-governor.html?callNumber=${callNumber}`;
+            governorWindow = window.open(governorUrl, '_blank', 'width=400,height=800');
         });
 
         startCounter();
