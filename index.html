@@ -128,14 +128,9 @@
             const auth = firebase.auth();
 
             let callNumber;
-            let players = [];
-            let currentPlayerIndex = 0;
-            let currentPlayer = 'X';
-            let boardState = Array(9).fill(null);
 
             const startGameButton = document.getElementById('startGameButton');
             const openGovernorButton = document.getElementById('openGovernorButton');
-            const board = document.getElementById('board');
             const message = document.getElementById('message');
 
             startGameButton.addEventListener('click', () => {
@@ -161,12 +156,9 @@
                     .orderBy('timestamp', 'asc')
                     .onSnapshot(snapshot => {
                         logToHTML("Snapshot received: " + JSON.stringify(snapshot.docs.map(doc => doc.data())));
-                        snapshot.docChanges().forEach(change => {
-                            if (change.type === 'added') {
-                                const data = change.doc.data();
-                                logToHTML("Player action data received: " + JSON.stringify(data));
-                                handlePlayerAction(data);
-                            }
+                        snapshot.forEach(doc => {
+                            const data = doc.data();
+                            logToHTML(`User: ${data.userName} (${data.userId}), Control: ${data.control}, Value: ${data.value}, Time: ${data.timestamp.toDate()}`);
                         });
                     }, error => {
                         logToHTML("Error receiving snapshot: " + error);
@@ -183,100 +175,6 @@
                 }
             });
 
-            function handlePlayerAction(data) {
-                logToHTML("Handling player action: " + JSON.stringify(data));
-                if (!players.includes(data.userId)) {
-                    players.push(data.userId);
-                    logToHTML(`Added player ${data.userId} as ${players.length === 1 ? 'X' : 'O'}`);
-                    if (players.length === 1) {
-                        data.symbol = 'X';
-                    } else if (players.length === 2) {
-                        data.symbol = 'O';
-                        message.textContent = `Player X: ${players[0]}, Player O: ${players[1]}`;
-                    }
-                    // Save player symbols
-                    db.collection('actions').doc(data.userId).set({
-                        userId: data.userId,
-                        userName: data.userName,
-                        symbol: data.symbol
-                    });
-                }
-
-                if (players.length === 2) {
-                    const cellIndex = parseInt(data.value);
-                    const cell = document.querySelector(`[data-cell-index="${cellIndex}"]`);
-                    logToHTML(`Player ${data.symbol} selected cell ${cellIndex}`);
-
-                    logToHTML("Board state before update: " + JSON.stringify(boardState));
-
-                    if (boardState[cellIndex] === null) {
-                        boardState[cellIndex] = data.symbol;
-                        cell.textContent = data.symbol;
-                        logToHTML("Board state updated: " + JSON.stringify(boardState));
-
-                        if (checkWin()) {
-                            message.textContent = `Player ${data.symbol} wins!`;
-                            logToHTML(`Player ${data.symbol} wins!`);
-                            // Reset game or handle win
-                        } else if (isBoardFull()) {
-                            message.textContent = 'It\'s a tie!';
-                            logToHTML("It's a tie!");
-                            // Reset game or handle tie
-                        } else {
-                            currentPlayerIndex = 1 - currentPlayerIndex;
-                            currentPlayer = currentPlayerIndex === 0 ? 'X' : 'O';
-                            const nextPlayer = players[currentPlayerIndex];
-                            message.textContent = `It's ${currentPlayer}'s turn (${nextPlayer}).`;
-                            logToHTML(`It's ${currentPlayer}'s turn (${nextPlayer}).`);
-                            // Unlock the next player's controller
-                            unlockPlayerController(nextPlayer);
-                        }
-                    } else {
-                        logToHTML(`Cell ${cellIndex} is already occupied.`);
-                    }
-                }
-            }
-
-            function checkWin() {
-                const winPatterns = [
-                    [0, 1, 2],
-                    [3, 4, 5],
-                    [6, 7, 8],
-                    [0, 3, 6],
-                    [1, 4, 7],
-                    [2, 5, 8],
-                    [0, 4, 8],
-                    [2, 4, 6]
-                ];
-
-                return winPatterns.some(pattern => {
-                    const cellValues = pattern.map(index => boardState[index]);
-                    return cellValues[0] && cellValues.every(value => value === cellValues[0]);
-                });
-            }
-
-            function isBoardFull() {
-                return boardState.every(cell => cell !== null);
-            }
-
-            function unlockPlayerController(player) {
-                logToHTML("Unlocking player controller for player: " + player);
-                // Implement logic to unlock the player's controller
-                // This could involve updating a Firestore document that the controller listens for
-                db.collection('actions').doc('gameState').set({
-                    currentTurn: player
-                });
-            }
-
-            // Update the board based on Firestore data
-            function updateBoard() {
-                logToHTML("Updating board with state: " + JSON.stringify(boardState));
-                for (let i = 0; i < boardState.length; i++) {
-                    const cell = document.querySelector(`[data-cell-index="${i}"]`);
-                    cell.textContent = boardState[i] ? boardState[i] : i;
-                }
-            }
-
             function logToHTML(message) {
                 const logContainer = document.getElementById('logs');
                 const logEntry = document.createElement('div');
@@ -291,4 +189,3 @@
     </script>
 </body>
 </html>
- 
