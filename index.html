@@ -61,6 +61,7 @@
     <div id="qrCode" class="qr-code"></div>
     <p id="message"></p>
     <button id="startGameButton">Start Game</button>
+    <button id="openGovernorButton">Open Governor</button>
 
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
@@ -69,6 +70,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
 
     <script>
+        let governorWindow;
+
         // Function to get Firebase config from Cloud Function
         async function getFirebaseConfig() {
             try {
@@ -111,6 +114,7 @@
             let boardState = Array(9).fill(null);
 
             const startGameButton = document.getElementById('startGameButton');
+            const openGovernorButton = document.getElementById('openGovernorButton');
             const board = document.getElementById('board');
             const message = document.getElementById('message');
 
@@ -119,7 +123,7 @@
                 const governorUrl = `https://dormantone.github.io/tictactoecontrol/controller-governor.html?callNumber=${callNumber}`;
 
                 // Open the governor window with specified dimensions
-                window.open(governorUrl, '_blank', 'width=400,height=800'); // Adjust width and height as needed
+                governorWindow = window.open(governorUrl, '_blank', 'width=400,height=800'); // Adjust width and height as needed
 
                 const qrElement = document.getElementById('qrCode');
                 const qr = new QRious({
@@ -144,6 +148,16 @@
                             }
                         });
                     });
+                window.focus();
+            });
+
+            openGovernorButton.addEventListener('click', () => {
+                if (governorWindow && !governorWindow.closed) {
+                    governorWindow.focus();
+                } else {
+                    const governorUrl = `https://dormantone.github.io/tictactoecontrol/controller-governor.html?callNumber=${callNumber}`;
+                    governorWindow = window.open(governorUrl, '_blank', 'width=400,height=800');
+                }
             });
 
             function handlePlayerAction(data) {
