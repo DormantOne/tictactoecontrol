@@ -10,6 +10,10 @@
             margin-top: 20px;
         }
 
+        .qr-code {
+            margin-top: 20px;
+        }
+
         #logs {
             margin-top: 20px;
             font-size: 0.8em;
@@ -32,14 +36,19 @@
 <body>
     <h2>Tic Tac Toe Game Firestore Listener</h2>
     <button id="startGameButton">Start Game</button>
+    <button id="openGovernorButton">Open Governor</button>
+    <div id="qrCode" class="qr-code"></div>
     <div id="logs"></div>
 
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-functions-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
 
     <script>
+        let governorWindow;
+
         // Function to get Firebase config from Cloud Function
         async function getFirebaseConfig() {
             try {
@@ -85,10 +94,22 @@
 
             let callNumber;
             const startGameButton = document.getElementById('startGameButton');
+            const openGovernorButton = document.getElementById('openGovernorButton');
 
             startGameButton.addEventListener('click', () => {
                 callNumber = Math.floor(Math.random() * 900000) + 100000;
                 logToHTML(`Game started! Call Number: ${callNumber}`);
+                const governorUrl = `https://dormantone.github.io/tictactoecontrol/controller-governor.html?callNumber=${callNumber}`;
+
+                // Open the governor window with specified dimensions
+                governorWindow = window.open(governorUrl, '_blank', 'width=400,height=800');
+
+                const qrElement = document.getElementById('qrCode');
+                const qr = new QRious({
+                    element: qrElement,
+                    size: 200,
+                    value: `https://dormantone.github.io/tictactoecontrol/controller.html?callNumber=${callNumber}`
+                });
 
                 auth.signInAnonymously().catch(error => {
                     logToHTML('Failed to sign in anonymously: ' + error.message);
@@ -106,6 +127,16 @@
                     }, error => {
                         logToHTML("Error receiving snapshot: " + error);
                     });
+                window.focus();
+            });
+
+            openGovernorButton.addEventListener('click', () => {
+                if (governorWindow && !governorWindow.closed) {
+                    governorWindow.focus();
+                } else {
+                    const governorUrl = `https://dormantone.github.io/tictactoecontrol/controller-governor.html?callNumber=${callNumber}`;
+                    governorWindow = window.open(governorUrl, '_blank', 'width=400,height=800');
+                }
             });
         }).catch(error => {
             logToHTML("Error fetching Firebase config: " + error);
