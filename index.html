@@ -128,19 +128,28 @@
                     value: `https://dormantone.github.io/tictactoecontrol/controller.html?callNumber=${callNumber}`
                 });
                 message.textContent = `Game started! Call Number: ${callNumber}`;
+                auth.signInAnonymously().catch(error => {
+                    console.error('Failed to sign in anonymously:', error.message);
+                });
             });
 
-            // Listen for player actions in Firestore
-            db.collection('actions').where('callNumber', '==', callNumber)
-                .orderBy('timestamp', 'asc')
-                .onSnapshot(snapshot => {
-                    snapshot.docChanges().forEach(change => {
-                        if (change.type === 'added') {
-                            const data = change.doc.data();
-                            handlePlayerAction(data);
-                        }
-                    });
-                });
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    const userId = user.uid;
+
+                    // Listen for player actions in Firestore
+                    db.collection('actions').where('callNumber', '==', callNumber)
+                        .orderBy('timestamp', 'asc')
+                        .onSnapshot(snapshot => {
+                            snapshot.docChanges().forEach(change => {
+                                if (change.type === 'added') {
+                                    const data = change.doc.data();
+                                    handlePlayerAction(data);
+                                }
+                            });
+                        });
+                }
+            });
 
             function handlePlayerAction(data) {
                 if (!players.includes(data.userId)) {
@@ -201,6 +210,9 @@
             function unlockPlayerController(player) {
                 // Implement logic to unlock the player's controller
                 // This could involve updating a Firestore document that the controller listens for
+                db.collection('actions').doc('gameState').set({
+                    currentTurn: player
+                });
             }
 
             // Update the board based on Firestore data
