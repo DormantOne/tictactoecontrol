@@ -165,6 +165,7 @@
                 console.log("Handling player action:", data);
                 if (!players.includes(data.userId)) {
                     players.push(data.userId);
+                    console.log(`Added player ${data.userId} as ${players.length === 1 ? 'X' : 'O'}`);
                     if (players.length === 1) {
                         data.symbol = 'X';
                     } else if (players.length === 2) {
@@ -182,6 +183,8 @@
                 if (players.length === 2) {
                     const cellIndex = parseInt(data.value);
                     const cell = document.querySelector(`[data-cell-index="${cellIndex}"]`);
+                    console.log(`Player ${data.symbol} selected cell ${cellIndex}`);
+
                     console.log("Board state before update:", boardState);
 
                     if (boardState[cellIndex] === null) {
@@ -191,18 +194,23 @@
 
                         if (checkWin()) {
                             message.textContent = `Player ${data.symbol} wins!`;
+                            console.log(`Player ${data.symbol} wins!`);
                             // Reset game or handle win
                         } else if (isBoardFull()) {
                             message.textContent = 'It\'s a tie!';
+                            console.log("It's a tie!");
                             // Reset game or handle tie
                         } else {
                             currentPlayerIndex = 1 - currentPlayerIndex;
                             currentPlayer = currentPlayerIndex === 0 ? 'X' : 'O';
                             const nextPlayer = players[currentPlayerIndex];
                             message.textContent = `It's ${currentPlayer}'s turn (${nextPlayer}).`;
+                            console.log(`It's ${currentPlayer}'s turn (${nextPlayer}).`);
                             // Unlock the next player's controller
                             unlockPlayerController(nextPlayer);
                         }
+                    } else {
+                        console.log(`Cell ${cellIndex} is already occupied.`);
                     }
                 }
             }
