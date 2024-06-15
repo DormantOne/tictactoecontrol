@@ -43,6 +43,24 @@
             margin-top: 20px;
             font-size: 1.2em;
         }
+
+        #logs {
+            margin-top: 20px;
+            font-size: 0.8em;
+            text-align: left;
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #f0f0f0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            height: 200px;
+            overflow-y: scroll;
+        }
+
+        .log-entry {
+            border-bottom: 1px solid #ccc;
+            padding: 2px 0;
+        }
     </style>
 </head>
 <body>
@@ -62,6 +80,8 @@
     <p id="message"></p>
     <button id="startGameButton">Start Game</button>
     <button id="openGovernorButton">Open Governor</button>
+
+    <div id="logs"></div>
 
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
@@ -90,7 +110,7 @@
 
                 return await response.json();
             } catch (error) {
-                console.error('Failed to fetch Firebase config:', error);
+                logToHTML('Failed to fetch Firebase config: ' + error);
                 return null;
             }
         }
@@ -98,11 +118,11 @@
         // Initialize Firebase with fetched config
         getFirebaseConfig().then(config => {
             if (!config) {
-                console.error("Error: Firebase config is null");
+                logToHTML("Error: Firebase config is null");
                 return;
             }
 
-            console.log("Firebase config fetched:", config);
+            logToHTML("Firebase config fetched: " + JSON.stringify(config));
             firebase.initializeApp(config);
             const db = firebase.firestore();
             const auth = firebase.auth();
@@ -133,23 +153,23 @@
                 });
                 message.textContent = `Game started! Call Number: ${callNumber}`;
                 auth.signInAnonymously().catch(error => {
-                    console.error('Failed to sign in anonymously:', error.message);
+                    logToHTML('Failed to sign in anonymously: ' + error.message);
                 });
 
                 // Listen for player actions in Firestore
                 db.collection('actions').where('callNumber', '==', callNumber)
                     .orderBy('timestamp', 'asc')
                     .onSnapshot(snapshot => {
-                        console.log("Snapshot received:", snapshot);
+                        logToHTML("Snapshot received: " + JSON.stringify(snapshot.docs.map(doc => doc.data())));
                         snapshot.docChanges().forEach(change => {
                             if (change.type === 'added') {
                                 const data = change.doc.data();
-                                console.log("Player action data received:", data);
+                                logToHTML("Player action data received: " + JSON.stringify(data));
                                 handlePlayerAction(data);
                             }
                         });
                     }, error => {
-                        console.error("Error receiving snapshot:", error);
+                        logToHTML("Error receiving snapshot: " + error);
                     });
                 window.focus();
             });
@@ -164,10 +184,10 @@
             });
 
             function handlePlayerAction(data) {
-                console.log("Handling player action:", data);
+                logToHTML("Handling player action: " + JSON.stringify(data));
                 if (!players.includes(data.userId)) {
                     players.push(data.userId);
-                    console.log(`Added player ${data.userId} as ${players.length === 1 ? 'X' : 'O'}`);
+                    logToHTML(`Added player ${data.userId} as ${players.length === 1 ? 'X' : 'O'}`);
                     if (players.length === 1) {
                         data.symbol = 'X';
                     } else if (players.length === 2) {
@@ -185,34 +205,34 @@
                 if (players.length === 2) {
                     const cellIndex = parseInt(data.value);
                     const cell = document.querySelector(`[data-cell-index="${cellIndex}"]`);
-                    console.log(`Player ${data.symbol} selected cell ${cellIndex}`);
+                    logToHTML(`Player ${data.symbol} selected cell ${cellIndex}`);
 
-                    console.log("Board state before update:", boardState);
+                    logToHTML("Board state before update: " + JSON.stringify(boardState));
 
                     if (boardState[cellIndex] === null) {
                         boardState[cellIndex] = data.symbol;
                         cell.textContent = data.symbol;
-                        console.log("Board state updated:", boardState);
+                        logToHTML("Board state updated: " + JSON.stringify(boardState));
 
                         if (checkWin()) {
                             message.textContent = `Player ${data.symbol} wins!`;
-                            console.log(`Player ${data.symbol} wins!`);
+                            logToHTML(`Player ${data.symbol} wins!`);
                             // Reset game or handle win
                         } else if (isBoardFull()) {
                             message.textContent = 'It\'s a tie!';
-                            console.log("It's a tie!");
+                            logToHTML("It's a tie!");
                             // Reset game or handle tie
                         } else {
                             currentPlayerIndex = 1 - currentPlayerIndex;
                             currentPlayer = currentPlayerIndex === 0 ? 'X' : 'O';
                             const nextPlayer = players[currentPlayerIndex];
                             message.textContent = `It's ${currentPlayer}'s turn (${nextPlayer}).`;
-                            console.log(`It's ${currentPlayer}'s turn (${nextPlayer}).`);
+                            logToHTML(`It's ${currentPlayer}'s turn (${nextPlayer}).`);
                             // Unlock the next player's controller
                             unlockPlayerController(nextPlayer);
                         }
                     } else {
-                        console.log(`Cell ${cellIndex} is already occupied.`);
+                        logToHTML(`Cell ${cellIndex} is already occupied.`);
                     }
                 }
             }
@@ -240,7 +260,7 @@
             }
 
             function unlockPlayerController(player) {
-                console.log("Unlocking player controller for player:", player);
+                logToHTML("Unlocking player controller for player: " + player);
                 // Implement logic to unlock the player's controller
                 // This could involve updating a Firestore document that the controller listens for
                 db.collection('actions').doc('gameState').set({
@@ -250,14 +270,23 @@
 
             // Update the board based on Firestore data
             function updateBoard() {
-                console.log("Updating board with state:", boardState);
+                logToHTML("Updating board with state: " + JSON.stringify(boardState));
                 for (let i = 0; i < boardState.length; i++) {
                     const cell = document.querySelector(`[data-cell-index="${i}"]`);
                     cell.textContent = boardState[i] ? boardState[i] : i;
                 }
             }
+
+            function logToHTML(message) {
+                const logContainer = document.getElementById('logs');
+                const logEntry = document.createElement('div');
+                logEntry.className = 'log-entry';
+                logEntry.textContent = message;
+                logContainer.appendChild(logEntry);
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
         }).catch(error => {
-            console.error("Error fetching Firebase config: ", error);
+            logToHTML("Error fetching Firebase config: " + error);
         });
     </script>
 </body>
