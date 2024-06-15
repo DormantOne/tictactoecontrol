@@ -125,6 +125,31 @@
             document.getElementById('counter').textContent = counter;
         }
 
+        async function fetchGameData() {
+            if (!db) {
+                logToHTML('Database not initialized.');
+                return;
+            }
+            try {
+                logToHTML('Fetching game data from Firestore...');
+                const query = db.collection('actions').where('callNumber', '==', callNumber).orderBy('timestamp', 'asc');
+                logToHTML(`Executing query for callNumber: ${callNumber}`);
+                const snapshot = await query.get();
+                if (!snapshot.empty) {
+                    logToHTML(`Fetched ${snapshot.size} documents.`);
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        logToHTML(`Document data: ${JSON.stringify(data)}`);
+                        updateBoard(data);
+                    });
+                } else {
+                    logToHTML(`No documents found for call number ${callNumber}`);
+                }
+            } catch (error) {
+                logToHTML("Error fetching game data: " + error);
+            }
+        }
+
         function updateBoard(data) {
             const cellIndex = parseInt(data.value);
             const cell = document.querySelector(`[data-cell-index="${cellIndex}"]`);
@@ -193,26 +218,18 @@
                 if (user) {
                     const userId = user.uid;
                     logToHTML("User signed in anonymously: " + userId);
+                    
+                    // Fetch game data initially
+                    fetchGameData();
 
-                    // Listen for actions in Firestore
-                    db.collection('actions').where('callNumber', '==', callNumber)
-                      .orderBy('timestamp', 'asc') // Order by ascending to get the order of moves
-                      .onSnapshot(snapshot => {
-                        logToHTML(`Snapshot received: ${snapshot.size} documents.`);
-                        const log = document.getElementById('logs');
-                        log.innerHTML = '';
-                        snapshot.forEach(doc => {
-                            const data = doc.data();
-                            logToHTML(`Document data: ${JSON.stringify(data)}`);
-                            updateBoard(data);
-                        });
-                    });
+                    // Periodically fetch game data
+                    setInterval(fetchGameData, 5000);
+
+                    // Open the governor window
+                    const governorUrl = `https://dormantone.github.io/tictactoecontrol/controller-governor.html?callNumber=${callNumber}`;
+                    governorWindow = window.open(governorUrl, '_blank', 'width=400,height=800');
                 }
             });
-
-            // Open the governor window
-            const governorUrl = `https://dormantone.github.io/tictactoecontrol/controller-governor.html?callNumber=${callNumber}`;
-            governorWindow = window.open(governorUrl, '_blank', 'width=400,height=800');
         });
 
         startCounter();
