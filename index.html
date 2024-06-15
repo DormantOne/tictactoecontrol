@@ -88,7 +88,6 @@
         let governorWindow;
         let counter = 0;
         let db, auth, callNumber;
-        let playerSymbol = null;
         let players = {};
 
         // Function to get Firebase config from Cloud Function
@@ -155,21 +154,22 @@
         function updateBoard(data) {
             const cellIndex = parseInt(data.value);
             const cell = document.querySelector(`[data-cell-index="${cellIndex}"]`);
-            cell.textContent = data.userName === players.O ? 'O' : 'X';
+            const playerSymbol = data.userId === players.O.userId ? 'O' : 'X';
+            cell.textContent = playerSymbol;
         }
 
         function startCounter() {
             setInterval(updateCounter, 1000);
         }
 
-        function assignPlayerSymbol(userName) {
+        function assignPlayerSymbol(userName, userId) {
             if (!players.O) {
-                players.O = userName;
-                localStorage.setItem('playerSymbol', 'O');
+                players.O = { userName, userId };
+                localStorage.setItem('playerO', JSON.stringify(players.O));
                 logToHTML(`Player O is ${userName}`);
             } else if (!players.X) {
-                players.X = userName;
-                localStorage.setItem('playerSymbol', 'X');
+                players.X = { userName, userId };
+                localStorage.setItem('playerX', JSON.stringify(players.X));
                 logToHTML(`Player X is ${userName}`);
             }
             updatePlayerInfo();
@@ -178,8 +178,8 @@
         function updatePlayerInfo() {
             const playerInfo = document.getElementById('playerInfo');
             playerInfo.innerHTML = `
-                <p>Player O: ${players.O || 'Waiting...'}</p>
-                <p>Player X: ${players.X || 'Waiting...'}</p>
+                <p>Player O: ${players.O ? players.O.userName : 'Waiting...'}</p>
+                <p>Player X: ${players.X ? players.X.userName : 'Waiting...'}</p>
             `;
         }
 
@@ -201,8 +201,10 @@
 
         startGameButton.addEventListener('click', async () => {
             localStorage.clear();
+            players = {}; // Clear players data
             callNumber = Math.floor(Math.random() * 900000) + 100000;
             logToHTML(`Game started! Call Number: ${callNumber}`);
+            updatePlayerInfo(); // Show waiting for players
 
             const qrElement = document.getElementById('qrCode');
             const qr = new QRious({
@@ -230,7 +232,7 @@
                 if (user) {
                     const userId = user.uid;
                     logToHTML("User signed in anonymously: " + userId);
-                    
+
                     // Fetch game data initially
                     fetchGameData();
 
