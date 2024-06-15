@@ -131,24 +131,18 @@
                 auth.signInAnonymously().catch(error => {
                     console.error('Failed to sign in anonymously:', error.message);
                 });
-            });
 
-            auth.onAuthStateChanged(user => {
-                if (user) {
-                    const userId = user.uid;
-
-                    // Listen for player actions in Firestore
-                    db.collection('actions').where('callNumber', '==', callNumber)
-                        .orderBy('timestamp', 'asc')
-                        .onSnapshot(snapshot => {
-                            snapshot.docChanges().forEach(change => {
-                                if (change.type === 'added') {
-                                    const data = change.doc.data();
-                                    handlePlayerAction(data);
-                                }
-                            });
+                // Listen for player actions in Firestore
+                db.collection('actions').where('callNumber', '==', callNumber)
+                    .orderBy('timestamp', 'asc')
+                    .onSnapshot(snapshot => {
+                        snapshot.docChanges().forEach(change => {
+                            if (change.type === 'added') {
+                                const data = change.doc.data();
+                                handlePlayerAction(data);
+                            }
                         });
-                }
+                    });
             });
 
             function handlePlayerAction(data) {
