@@ -144,10 +144,12 @@
                         snapshot.docChanges().forEach(change => {
                             if (change.type === 'added') {
                                 const data = change.doc.data();
-                                console.log("Player action data:", data);
+                                console.log("Player action data received:", data);
                                 handlePlayerAction(data);
                             }
                         });
+                    }, error => {
+                        console.error("Error receiving snapshot:", error);
                     });
                 window.focus();
             });
