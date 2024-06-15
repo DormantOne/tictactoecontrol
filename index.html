@@ -48,15 +48,15 @@
 <body>
     <h2>Tic Tac Toe Game</h2>
     <div id="board" class="board">
-        <div class="cell" data-cell-index="0"></div>
-        <div class="cell" data-cell-index="1"></div>
-        <div class="cell" data-cell-index="2"></div>
-        <div class="cell" data-cell-index="3"></div>
-        <div class="cell" data-cell-index="4"></div>
-        <div class="cell" data-cell-index="5"></div>
-        <div class="cell" data-cell-index="6"></div>
-        <div class="cell" data-cell-index="7"></div>
-        <div class="cell" data-cell-index="8"></div>
+        <div class="cell" data-cell-index="0">0</div>
+        <div class="cell" data-cell-index="1">1</div>
+        <div class="cell" data-cell-index="2">2</div>
+        <div class="cell" data-cell-index="3">3</div>
+        <div class="cell" data-cell-index="4">4</div>
+        <div class="cell" data-cell-index="5">5</div>
+        <div class="cell" data-cell-index="6">6</div>
+        <div class="cell" data-cell-index="7">7</div>
+        <div class="cell" data-cell-index="8">8</div>
     </div>
     <div id="qrCode" class="qr-code"></div>
     <p id="message"></p>
@@ -107,6 +107,8 @@
             let callNumber;
             let players = [];
             let currentPlayerIndex = 0;
+            let currentPlayer = 'X';
+            let boardState = Array(9).fill(null);
 
             const startGameButton = document.getElementById('startGameButton');
             const board = document.getElementById('board');
@@ -143,16 +145,19 @@
             function handlePlayerAction(data) {
                 if (!players.includes(data.userId)) {
                     players.push(data.userId);
+                    if (players.length === 2) {
+                        message.textContent = `Player X: ${players[0]}, Player O: ${players[1]}`;
+                    }
                 }
 
                 if (players.length === 2) {
                     const cellIndex = parseInt(data.value);
                     const cell = document.querySelector(`[data-cell-index="${cellIndex}"]`);
-                    const currentPlayer = players[currentPlayerIndex];
-                    const nextPlayer = players[1 - currentPlayerIndex];
 
-                    if (cell.textContent === '') {
-                        cell.textContent = currentPlayerIndex === 0 ? 'X' : 'O';
+                    if (boardState[cellIndex] === null) {
+                        boardState[cellIndex] = currentPlayer;
+                        cell.textContent = currentPlayer;
+
                         if (checkWin()) {
                             message.textContent = `Player ${currentPlayer} wins!`;
                             // Reset game or handle win
@@ -161,7 +166,9 @@
                             // Reset game or handle tie
                         } else {
                             currentPlayerIndex = 1 - currentPlayerIndex;
-                            message.textContent = `It's ${nextPlayer}'s turn.`;
+                            currentPlayer = currentPlayerIndex === 0 ? 'X' : 'O';
+                            const nextPlayer = players[currentPlayerIndex];
+                            message.textContent = `It's ${currentPlayer}'s turn (${nextPlayer}).`;
                             // Unlock the next player's controller
                             unlockPlayerController(nextPlayer);
                         }
@@ -182,22 +189,30 @@
                 ];
 
                 return winPatterns.some(pattern => {
-                    const cellValues = pattern.map(index => document.querySelector(`[data-cell-index="${index}"]`).textContent);
+                    const cellValues = pattern.map(index => boardState[index]);
                     return cellValues[0] && cellValues.every(value => value === cellValues[0]);
                 });
             }
 
             function isBoardFull() {
-                return [...document.querySelectorAll('.cell')].every(cell => cell.textContent !== '');
+                return boardState.every(cell => cell !== null);
             }
 
             function unlockPlayerController(player) {
                 // Implement logic to unlock the player's controller
                 // This could involve updating a Firestore document that the controller listens for
             }
+
+            // Update the board based on Firestore data
+            function updateBoard() {
+                for (let i = 0; i < boardState.length; i++) {
+                    const cell = document.querySelector(`[data-cell-index="${i}"]`);
+                    cell.textContent = boardState[i] ? boardState[i] : i;
+                }
+            }
         }).catch(error => {
             console.error("Error fetching Firebase config: ", error);
         });
     </script>
 </body>
-</html> 
+</html>
