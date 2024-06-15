@@ -65,6 +65,7 @@
     <button id="openGovernorButton">Open Governor</button>
     <div id="qrCode" class="qr-code"></div>
     <div id="logs"></div>
+    <div id="playerInfo"></div>
     <div id="board" class="board">
         <div class="cell" data-cell-index="0"></div>
         <div class="cell" data-cell-index="1"></div>
@@ -88,6 +89,7 @@
         let counter = 0;
         let db, auth, callNumber;
         let playerSymbol = null;
+        let players = {};
 
         // Function to get Firebase config from Cloud Function
         async function getFirebaseConfig() {
@@ -153,21 +155,32 @@
         function updateBoard(data) {
             const cellIndex = parseInt(data.value);
             const cell = document.querySelector(`[data-cell-index="${cellIndex}"]`);
-            cell.textContent = data.control === 'choice' ? (data.userName === 'X' ? 'X' : 'O') : '';
+            cell.textContent = data.userName === players.O ? 'O' : 'X';
         }
 
         function startCounter() {
             setInterval(updateCounter, 1000);
         }
 
-        function assignPlayerSymbol() {
-            if (!localStorage.getItem('playerSymbol')) {
-                playerSymbol = Math.random() < 0.5 ? 'X' : 'O';
-                localStorage.setItem('playerSymbol', playerSymbol);
-            } else {
-                playerSymbol = localStorage.getItem('playerSymbol');
+        function assignPlayerSymbol(userName) {
+            if (!players.O) {
+                players.O = userName;
+                localStorage.setItem('playerSymbol', 'O');
+                logToHTML(`Player O is ${userName}`);
+            } else if (!players.X) {
+                players.X = userName;
+                localStorage.setItem('playerSymbol', 'X');
+                logToHTML(`Player X is ${userName}`);
             }
-            logToHTML(`You are playing as ${playerSymbol}`);
+            updatePlayerInfo();
+        }
+
+        function updatePlayerInfo() {
+            const playerInfo = document.getElementById('playerInfo');
+            playerInfo.innerHTML = `
+                <p>Player O: ${players.O || 'Waiting...'}</p>
+                <p>Player X: ${players.X || 'Waiting...'}</p>
+            `;
         }
 
         const openGovernorButton = document.getElementById('openGovernorButton');
@@ -190,7 +203,6 @@
             localStorage.clear();
             callNumber = Math.floor(Math.random() * 900000) + 100000;
             logToHTML(`Game started! Call Number: ${callNumber}`);
-            assignPlayerSymbol();
 
             const qrElement = document.getElementById('qrCode');
             const qr = new QRious({
